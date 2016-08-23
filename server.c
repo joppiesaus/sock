@@ -37,7 +37,7 @@
 #define BUFLEN 256 // size of recv buffer
 #define TIMEOUT 30 * 1000 // 30 seconds poll() timeout
 
-const char * RETURN_MESSAGE = "✓✓ seen";
+const char * RETURN_MESSAGE = "✓✓ seen\n";
 const char * FULL_MESSAGE = "😩 I am sorry but the server is full";
 const char * TIME_BROKE = "sorry the time broke";
 
@@ -106,10 +106,7 @@ int main(int argc, char **argv)
 		ferr("Error on binding socket");
 	
 	if (listen(sock, BACKLOG) == -1)
-	{
-		perror("Error on listen");
-		exit(EXIT_FAILURE);		
-	}
+		ferr("Error on listen");
 	
 	socklen_t clilen = sizeof(cli_addr);
 	
@@ -122,7 +119,6 @@ int main(int argc, char **argv)
 	fdlist[0].events = POLLIN;
 	
 	int sockcount = 1;
-	
 	
 	while (1)
 	{
@@ -229,87 +225,6 @@ int main(int argc, char **argv)
 		}
 		
 	}
-	
-	
-	
-	/*newsockfd = accept(sock, (struct sockaddr*)&cli_addr, &clilen);
-	if (newsockfd < 0)
-		ferr("Error on accepting socket");
-		
-	memset(buffer, 0, BUFLEN);
-	
-	n = read(newsockfd, buffer, BUFLEN - 1);
-	if (n < 0)
-		ferr("Error on reading socket");
-	
-	printf("Message received: %s\n", buffer);
-	
-	n = write(newsockfd, RETURN_MESSAGE, strlen(RETURN_MESSAGE));
-	
-	if (n < 0)
-		ferr("Error on writing socket");
-		
-	*/
-	
-	//while (1)
-	//{
-		/*newsockfd = accept(sock, (struct sockaddr*)&cli_addr,
-			&clilen);
-		
-		if (newsockfd < 0)
-		{
-			fprintf(stderr, "Error accepting socket\n");
-			continue;
-		}*/
-		
-		
-		/*int pid = fork();
-		if (pid < 0)
-			ferr("Error on fork");
-		else if (pid == 0)
-		{
-			// child
-			close(sock);
-			
-			while (1)
-			{
-				memset(buffer, 0, BUFLEN);
-				n = read(newsockfd, buffer, BUFLEN - 1);
-				if (n < 0)
-					ferr("Error reading socket");
-				if (n == 0)
-				{
-					printf("Received EOF\n");
-					break;
-				}
-				printf("Message received: %s\n", buffer);
-				
-				/ *char * msg = concatstr(
-					RETURN_MESSAGE,
-					getcurrenttimestringthing()
-				);
-				
-				n = write(newsockfd, msg, strlen(msg));* /
-				
-				n = write(newsockfd, RETURN_MESSAGE,
-					strlen(RETURN_MESSAGE));
-				
-				if (n < 0)
-					ferr("Error on writing socket");
-			}
-			close(newsockfd);
-			exit(EXIT_SUCCESS);
-		}
-		else
-		{
-			// parent
-			close(newsockfd);
-		}*/
-	//}
-	
-	// take off socks
-	//close(newsockfd);
-	//close(sock);
 	
 	return 0;
 }

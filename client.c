@@ -51,8 +51,8 @@ void * getinaddr(struct sockaddr *sa)
 
 int main(int argc, char *argv[])
 {
-	int sock, n, rv;
-	size_t msglen;
+	int sock, rv;
+	size_t msglen, n;
 	struct addrinfo hints, *servinfo, *p;
 	char buffer[BUFLEN];
 	char ipbuffer[INET6_ADDRSTRLEN];
@@ -116,35 +116,6 @@ int main(int argc, char *argv[])
 	freeaddrinfo(servinfo);
 	
 	
-	/* uncomment to force IPv4 and a single host
-	struct sockaddr_in serv_addr;
-	struct hostent *server;
-	
-	int portno = atoi(argv[2]);
-	
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	
-	if (sock < 0)
-		ferr("Error opening socket");
-	
-	server = gethostbyname(argv[1]);
-	
-	if (server == NULL)
-	{
-		fprintf(stderr, "No such host %s", argv[1]);
-		exit(EXIT_FAILURE);
-	}
-	
-	serv_addr.sin_family = AF_INET;
-	memcpy((void*)&serv_addr.sin_addr.s_addr,
-		(void*)server->h_addr,
-		server->h_length);
-	serv_addr.sin_port = htons(portno);
-	
-	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-		ferr("Error connecting socket");
-	*/
-	
 	// TODO: poll()?
 	int pid = fork();
 	if (pid < 0)
@@ -156,7 +127,10 @@ int main(int argc, char *argv[])
 		// child
 		while (1)
 		{
-			getline(&sendbuffer, &msglen, stdin);
+			n = getline(&sendbuffer, &msglen, stdin);
+			
+			if (n < 0)
+				ferr("getline");
 			
 			n = send(sock, sendbuffer, strlen(sendbuffer), 0);
 			if (n < 0)

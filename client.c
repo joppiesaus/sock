@@ -78,30 +78,32 @@ int main(int argc, char *argv[])
 	// browse through IP's
 	for (p = servinfo; p != NULL; p = p->ai_next)
 	{
-		if ((sock = socket(p->ai_family, p->ai_socktype,
-			p->ai_protocol)) == -1)
-		{
-			perror("Error opening socket");
-			continue;
-		}
-		
 		inet_ntop(
 			p->ai_family,
 			getinaddr((struct sockaddr *)p->ai_addr),
 			ipbuffer,
 			sizeof(ipbuffer)
 		);
+		
 		printf("Trying %s...", ipbuffer);
 		fflush(stdout);
+		
+		if ((sock = socket(p->ai_family, p->ai_socktype,
+			p->ai_protocol)) == -1)
+		{
+			perror("\tError opening socket");
+			continue;
+		}
+		
 		if (connect(sock, p->ai_addr, p->ai_addrlen) == -1)
 		{
-			perror(" Failed");
+			perror("\tFailed");
 			close(sock);
 			continue;
 		}
 		
 		// working socket found
-		printf(" Success!\n");
+		printf("\tSuccess!\n");
 		break;
 	}
 	

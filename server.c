@@ -26,16 +26,18 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
-#include <strings.h>
-#include <string.h> // string.h and strings.h...?
+#include <string.h>
 #include <poll.h>
-#include <time.h>
 
 #define MAX_CONN 100
 #define BACKLOG 5 // listen() backlog
 #define BUFLEN 256 // size of recv buffer
 #define TIMEOUT 30 * 1000 // 30 seconds poll() timeout
+
+#define GETINET(s) inet_ntop(s->sa_family, getinaddr(s), ipbuffer, \
+	sizeof(ipbuffer))
 
 const char * RETURN_MESSAGE = "✓✓ seen\n";
 const char * FULL_MESSAGE = "😩 I am sorry but the server is full";
@@ -47,33 +49,23 @@ void ferr(const char * msg)
 	exit(EXIT_FAILURE);
 }
 
-const char* getcurrenttimestringthing()
+// Gets a pointer to the internet address of a sockaddr*
+void * getinaddr(struct sockaddr *sa)
 {
-	time_t ct = time(NULL);
-	
-	if (ct == ((time_t)-1))
-		return TIME_BROKE;
-	
-	char* tstr = ctime(&ct);
-	
-	return (tstr == NULL) ? TIME_BROKE : tstr;
-}
-
-// C COMES WITH EXTENDED OUT OF THE BOX SUPPORT FOR STRINGS
-char * concatstr(const char * a, const char * b)
-{
-	char * c = (char *)malloc(1 + strlen(a) + strlen(b));
-	strcpy(c, a);
-	strcat(c, b);
-	return c;
+	if (sa->sa_family == AF_INET) // IPv4
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+		
+	return &(((struct sockaddr_in6*)sa)->sin6_addr); // IPv6
 }
 
 int main(int argc, char **argv)
 {
 	int sock, portno, rv, i, j, n;
-	struct sockaddr_in serv_addr, cli_addr;
+	struct sockaddr_in serv_addr;
+	struct sockaddr * cli_addr = NULL;
 	
 	char buffer[BUFLEN];
+	char ipbuffer[INET6_ADDRSTRLEN];
 	
 	if (argc < 2)
 	{
@@ -107,11 +99,10 @@ int main(int argc, char **argv)
 	
 	if (listen(sock, BACKLOG) == -1)
 		ferr("Error on listen");
-	
-	socklen_t clilen = sizeof(cli_addr);
-	
-	//struct pollfd * fdlist;
-	//fdlist = (struct pollfd *)malloc(sizeof(struct pollfd) * MAX_CONN);
+		
+	size_t cli_size = sizeof(serv_addr.sin_addr);
+	socklen_t clilen = (socklen_t)cli_size;
+	cli_addr = malloc(cli_size);
 	
 	// TODO: Make "infinite"?
 	struct pollfd fdlist[MAX_CONN + 1];
@@ -135,15 +126,17 @@ int main(int argc, char **argv)
 		if (fdlist[0].revents & POLLIN)
 		{
 			// New connection inbound
-			memset(&cli_addr, 0, sizeof(cli_addr));
-			int cfd = accept(sock, (struct sockaddr *)&cli_addr,
-				&clilen);
-				
+			memset(cli_addr, 0, cli_size);
+			int cfd = accept(sock, cli_addr, &clilen);
+			
 			if (cfd < 0)
 			{
 				perror("Error accepting client");
 				continue; //???
 			}
+			
+			GETINET(cli_addr);
+			printf("Incoming connection from %s...\n", ipbuffer);
 			
 			if (sockcount > MAX_CONN)
 			{

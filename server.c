@@ -41,7 +41,6 @@
 
 const char * RETURN_MESSAGE = "✓✓ seen\n";
 const char * FULL_MESSAGE = "😩 I am sorry but the server is full";
-const char * TIME_BROKE = "sorry the time broke";
 
 void ferr(const char * msg)
 {

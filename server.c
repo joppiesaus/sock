@@ -1,25 +1,22 @@
 /*
- * server.c
+ * server.c - Creates a listening socket that echo's messages to all
+ *            its peers
  * 
- * Copyright 2016 job <job@COMMUNICATE>
+ * Copyright 2016 job <job@function1.nl>
  * 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose is hereby granted.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301, USA.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+ * OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  * 
  */
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,29 +29,31 @@
 #include <poll.h>
 
 #define MAX_CONN 100
-#define BACKLOG 5 // listen() backlog
-#define BUFLEN 256 // size of recv buffer
-#define TIMEOUT 30 * 1000 // 30 seconds poll() timeout
+#define BACKLOG 5 /* listen() backlog */
+#define BUFLEN 256 /* size of recv buffer */
+#define TIMEOUT 30 * 1000 /* 30 seconds poll() timeout */
 
+/* converts sockaddr* to string and puts into ipbuffer */
 #define GETINET(s) inet_ntop(s->sa_family, getinaddr(s), ipbuffer, \
 	sizeof(ipbuffer))
 
 const char * RETURN_MESSAGE = "✓✓ seen\n";
 const char * FULL_MESSAGE = "😩 I am sorry but the server is full";
 
+/* prints msg, with error details, and exits */
 void ferr(const char * msg)
 {
 	perror(msg);
 	exit(EXIT_FAILURE);
 }
 
-// Gets a pointer to the internet address of a sockaddr*
+/* gets a pointer to the internet address of a sockaddr* */
 void * getinaddr(struct sockaddr *sa)
 {
-	if (sa->sa_family == AF_INET) // IPv4
+	if (sa->sa_family == AF_INET) /* IPv4 */
 		return &(((struct sockaddr_in*)sa)->sin_addr);
 		
-	return &(((struct sockaddr_in6*)sa)->sin6_addr); // IPv6
+	return &(((struct sockaddr_in6*)sa)->sin6_addr); /* IPv6 */
 }
 
 int main(int argc, char **argv)
@@ -72,15 +71,15 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	
-	// TODO: IPv6
-	sock = socket(AF_INET, SOCK_STREAM, 0); // init tcp socket
+	/* TODO: IPv6 */
+	sock = socket(AF_INET, SOCK_STREAM, 0); /* init TCP socket */
 	
 	if (sock < 0)
 		ferr("Error opening socket");
 		
 	const socklen_t yes = 1;
 	
-	// make the socket reusable
+	/* make the socket reusable */
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
 		(void*)&yes, sizeof(yes)) < 0)
 		perror("Error on setsockopt");
@@ -103,7 +102,7 @@ int main(int argc, char **argv)
 	socklen_t clilen = (socklen_t)cli_size;
 	cli_addr = malloc(cli_size);
 	
-	// TODO: Make "infinite"?
+	/* TODO: make "infinite"? */
 	struct pollfd fdlist[MAX_CONN + 1];
 	fdlist[0].fd = sock;
 	fdlist[0].events = POLLIN;
@@ -112,26 +111,27 @@ int main(int argc, char **argv)
 	
 	while (1)
 	{
+		/* poll for activity... */
 		rv = poll(fdlist, (nfds_t)sockcount, TIMEOUT);
 		
 		if (rv == -1)
 			ferr("poll() failed");
 		else if (rv == 0)
 		{
-			//printf("timeout\n");
+			/*printf("timeout\n");*/
 			continue;
 		}
 		
 		if (fdlist[0].revents & POLLIN)
 		{
-			// New connection inbound
+			/* new connection inbound */
 			memset(cli_addr, 0, cli_size);
 			int cfd = accept(sock, cli_addr, &clilen);
 			
 			if (cfd < 0)
 			{
 				perror("Error accepting client");
-				continue; //???
+				continue;
 			}
 			
 			GETINET(cli_addr);
@@ -139,10 +139,10 @@ int main(int argc, char **argv)
 			
 			if (sockcount > MAX_CONN)
 			{
-				// Server is full, reject
+				/* server is full, reject */
 				printf("Client rejected(server full)\n");
 				
-				// Send a kind message
+				/* send a kind message */
 				n = send(cfd, FULL_MESSAGE, strlen(FULL_MESSAGE), 0);
 				
 				if (n < 0)
@@ -150,10 +150,10 @@ int main(int argc, char **argv)
 					
 				close(cfd);
 				
-				continue; //???
+				continue;
 			}
 			
-			// Add it to the list
+			/* add it to the list of sockets */
 			struct pollfd client;
 			client.fd = cfd;
 			client.events = POLLIN;
@@ -165,9 +165,9 @@ int main(int argc, char **argv)
 		
 		for (i = 1/*skip listening socket*/; i < sockcount; i++)
 		{
-			// POLLHUP not required
 			if (fdlist[i].revents & POLLIN)
 			{
+				/* incoming message! */
 				memset(buffer, 0, BUFLEN);
 				
 				n = recv(fdlist[i].fd, buffer, BUFLEN - 1, 0);
@@ -179,10 +179,10 @@ int main(int argc, char **argv)
 				}
 				else if (n == 0)
 				{
-					// EOF detected, remove
+					/* EOF detected, remove the socket */
 					close(fdlist[i].fd);
 					
-					// Swap
+					/* swap last element with the removed one */
 					fdlist[i--] = fdlist[--sockcount];
 					
 					printf("Client left\n");
@@ -192,6 +192,8 @@ int main(int argc, char **argv)
 				
 				printf("Received message: %s", buffer);
 				
+				/* send a kind message back to indicate that the message
+				 * was received */
 				n = send(fdlist[i].fd, RETURN_MESSAGE,
 					strlen(RETURN_MESSAGE), 0);
 					
@@ -199,10 +201,10 @@ int main(int argc, char **argv)
 					perror("Error writing socket");
 				
 				
-				// send it to the rest of the peers
+				/* send the message to the rest of the peers */
 				for (j = 1; j < sockcount; j++)
 				{
-					// Do not resend to sender
+					/* do not resend to sender */
 					if (i == j) continue;
 					
 					n = send(fdlist[j].fd, buffer, strlen(buffer), 0);

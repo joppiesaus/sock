@@ -1,23 +1,20 @@
 /*
- * client.c
+ * client.c - socket program thing
  * 
- * Copyright 2016 job <job@COMMUNICATE>
  * 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Copyright 2016 job <job@function1.nl>
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose is hereby granted.
  * 
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301, USA.
- * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+ * OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  * 
  */
 
@@ -30,23 +27,23 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
-#include <strings.h>
 
 #define BUFLEN 256
 
+/* prints msg, with error details, and exits */
 void ferr(const char* msg)
 {
 	perror(msg);
 	exit(EXIT_FAILURE);
 }
 
-// Gets a pointer to the internet address of a sockaddr*
+/* gets a pointer to the internet address of a sockaddr* */
 void * getinaddr(struct sockaddr *sa)
 {
-	if (sa->sa_family == AF_INET) // IPv4
+	if (sa->sa_family == AF_INET) /* IPv4 */
 		return &(((struct sockaddr_in*)sa)->sin_addr);
 		
-	return &(((struct sockaddr_in6*)sa)->sin6_addr); // IPv6
+	return &(((struct sockaddr_in6*)sa)->sin6_addr); /* IPv6 */
 }
 
 int main(int argc, char *argv[])
@@ -65,17 +62,17 @@ int main(int argc, char *argv[])
 	}
 	
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC; // Unspecified(IPv4, IPv6, don't care)
-	hints.ai_socktype = SOCK_STREAM; // TCP
+	hints.ai_family = AF_UNSPEC; /*Unspecified(IPv4, IPv6, don't care)*/
+	hints.ai_socktype = SOCK_STREAM; /* TCP */
 	
-	// get server info
+	/* get server info */
 	if ((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0)
 	{
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return EXIT_FAILURE;
 	}
 	
-	// browse through IP's
+	/* browse through IP's */
 	for (p = servinfo; p != NULL; p = p->ai_next)
 	{
 		inet_ntop(
@@ -102,7 +99,7 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		
-		// working socket found
+		/* working socket found */
 		printf("\tSuccess!\n");
 		break;
 	}
@@ -110,7 +107,7 @@ int main(int argc, char *argv[])
 	if (p == NULL)
 	{
 		fprintf(stderr, "All attempts failed\n");
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	
 	printf("Connected to %s! Say something!\n", ipbuffer);
@@ -118,7 +115,7 @@ int main(int argc, char *argv[])
 	freeaddrinfo(servinfo);
 	
 	
-	// TODO: poll()?
+	/* TODO: poll()? */
 	int pid = fork();
 	if (pid < 0)
 	{
@@ -126,7 +123,7 @@ int main(int argc, char *argv[])
 	}
 	else if (pid == 0)
 	{
-		// child
+		/* child */
 		while (1)
 		{
 			n = getline(&sendbuffer, &msglen, stdin);
@@ -141,7 +138,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		// parent
+		/* parent */
 		while (1)
 		{
 			memset(buffer, 0, BUFLEN);
@@ -163,4 +160,3 @@ int main(int argc, char *argv[])
 	
 	return 0;
 }
-

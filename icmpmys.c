@@ -433,7 +433,7 @@ int main(int argc, char **argv)
 			#define ADDITIONAL_OFFSET 0
 			#endif
 			
-			#define MSG_OFFSET sizeof(hdr) + ADDITIONAL_OFFSET
+			#define MSG_OFFSET (ADDITIONAL_OFFSET + sizeof(hdr))
 			
 			
 			memcpy(&hdr, packet + ADDITIONAL_OFFSET, sizeof(hdr));

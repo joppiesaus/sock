@@ -1,11 +1,21 @@
 /*
- * icmpmys.c
+ * icmpmys.c - Mysererious and inconvenient application to chat over
+ *             the internet using ICMPv6 over IPv6 or ICMP over IPv4
  * 
- * does something
  * 
- * Copyright 2017 job <job@COMMUNICATE>
+ * Copyright 2017 job <job@function1.nl>
  * 
- * just do whatever you want okay
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose is hereby granted.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+ * OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  * 
  */
 
@@ -28,7 +38,7 @@
 #include <netdb.h> /* getaddrinfo() */
 #include <arpa/inet.h> /* inet_ntop() */
 
-#ifdef IPV4
+#if IPV4
 	#include <netinet/ip_icmp.h> /* struct icmp */
 #else
 	#include <netinet/icmp6.h> /* icmp6_hdr and other ICPMv6 stuff */
@@ -45,14 +55,14 @@ void ferr(const char* msg)
 
 /* This defines an abstract function that prints info about a
  * ICMP/ICMPv6 header based on the IPV4 define */
-#ifdef IPV4
+#if IPV4
 void print_icmphdrinfo(const struct icmp * hdr)
 {
 	/* IPv4 */
 	printf("type:\t%d\t(", hdr->icmp_type);
 	
 	#define ERR printf("Error: ")
-	#define INF printf("Info: ");
+	#define INF printf("Info: ")
 	
 	switch (hdr->icmp_type)
 	{
@@ -112,7 +122,7 @@ void print_icmphdrinfo(const struct icmp6_hdr * hdr)
 	{
 		/* I hope these headers are portable */
 		
-		/* ICPMv6 Errors */
+		/* ICMPv6 Errors */
 		case ICMP6_DST_UNREACH: /* 1 */
 			printf("Destination Unreachable");
 			break;
@@ -180,7 +190,7 @@ void * getinaddr(const struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr); /* IPv6 */
 }
 
-#ifdef IPV4
+#if IPV4
 /* Computes the standard internet checksum (RFC 1071) */
 /* Using stupid types because I don't know if I can trust the compiler */
 uint16_t checksum(uint16_t * b, size_t len)
@@ -267,33 +277,28 @@ uint16_t icmp4_checksum(struct icmp icmphdr, const uint8_t * payload,
 
 int main(int argc, char **argv)
 {
-	/* TODO: Set by program args */
-	int ttl = 0; /* IPvX time to live */
-	
 	if (argc < 2)
 	{
 		printf("Usage: %s <hostname>\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 	
+	/* TODO: Set by program args */
+	int ttl = 0; /* IPvX time to live */
 	
-	int sock, rv;
+	int sock, r;
 	struct addrinfo hints, *target_info, *p;
-	struct sockaddr * resp_addr;
 	
-	#ifdef IPV4
-	socklen_t resp_addrlen = sizeof(struct sockaddr_in);
+	#if IPV4
 	char ipbuffer[INET_ADDRSTRLEN];
 	#else
-	socklen_t resp_addrlen = sizeof(struct sockaddr_in6);
 	char ipbuffer[INET6_ADDRSTRLEN];
 	#endif
 	
 	
-	
 	/* Give getaddrinfo some hints: A raw IPv6 socket for ICMP6! */
 	memset(&hints, 0, sizeof(struct addrinfo));
-	#ifdef IPV4
+	#if IPV4
 	hints.ai_family = AF_INET;
 	hints.ai_protocol = IPPROTO_ICMP;
 	#else
@@ -304,11 +309,11 @@ int main(int argc, char **argv)
 	hints.ai_socktype = SOCK_RAW;
 	
 	
-	rv = getaddrinfo(argv[1], NULL, &hints, &target_info);
+	r = getaddrinfo(argv[1], NULL, &hints, &target_info);
 	
-	if (rv != 0)
+	if (r != 0)
 	{
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(r));
 		exit(EXIT_FAILURE);
 	}
 	
@@ -351,7 +356,7 @@ int main(int argc, char **argv)
 	
 	if (ttl > 0)
 	{
-		#ifdef IPV4
+		#if IPV4
 		if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0)
 		{
 			perror("setsockopt failed while setting IP_TTL");
@@ -367,9 +372,8 @@ int main(int argc, char **argv)
 	
 	/* TODO: Do tha random id stuff..? */
 	short id = 12345;
-	int r;
 	
-	#ifdef IPV4
+	#if IPV4
 	struct icmp hdr;
 	#else
 	struct icmp6_hdr hdr;
@@ -383,6 +387,14 @@ int main(int argc, char **argv)
 	else if (pid == 0)
 	{
 		/* child */
+		struct sockaddr * resp_addr;
+		
+		#if IPV4
+		socklen_t resp_addrlen = sizeof(struct sockaddr_in);
+		#else
+		socklen_t resp_addrlen = sizeof(struct sockaddr_in6);
+		#endif
+		
 		resp_addr = malloc(resp_addrlen);
 		
 		char packet[MAX_PACKET_LEN];
@@ -390,10 +402,10 @@ int main(int argc, char **argv)
 		
 		char * buf = NULL;
 		size_t buf_size;
-		#ifdef IPV4
+		#if IPV4
 		size_t ipv4offset;
 		#endif
-			
+		
 		/* TODO: Receiving proper messages */
 		while (1)
 		{
@@ -420,7 +432,7 @@ int main(int argc, char **argv)
 			);
 			
 			
-			#ifdef IPV4
+			#if IPV4
 			/* recvfrom for IPv4 will also include the IPv4 address */
 			/* So, the second nimble(4 bits) of an IPv4 address
 			 * contains the length of the address in terms of 32 bit
@@ -438,7 +450,7 @@ int main(int argc, char **argv)
 			
 			memcpy(&hdr, packet + ADDITIONAL_OFFSET, sizeof(hdr));
 			
-			#ifdef IPV4
+			#if IPV4
 			if (hdr.icmp_type == ICMP_ECHO) /* echo request, 8 */
 			{
 				printf("Incoming message!\n");
@@ -515,7 +527,7 @@ int main(int argc, char **argv)
 		{
 			memset(&hdr, 0, sizeof(hdr));
 			
-			#ifdef IPV4
+			#if IPV4
 			/* Craft ICMP header */
 			hdr.icmp_type = ICMP_ECHO;
 			hdr.icmp_code = 0;
@@ -538,7 +550,7 @@ int main(int argc, char **argv)
 				
 			msg_len = (size_t)r;
 			
-			#ifdef IPV4
+			#if IPV4
 			hdr.icmp_cksum = icmp4_checksum(hdr, (uint8_t *)msg, msg_len);
 			#endif
 			

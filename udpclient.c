@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC; /*Unspecified(IPv4, IPv6, don't care)*/
-	hints.ai_socktype = SOCK_DGRAM; /* TCP */
+	hints.ai_socktype = SOCK_DGRAM; /* UDP */
 	
 	/* get server info */
 	if ((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0)

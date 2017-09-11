@@ -98,6 +98,8 @@ char ** parse_quote_list(const char * filename, size_t * len)
 	}
 
 endoffile:
+	fclose(input);
+
 	if (i == 0)
 		ferr("No quotes in list!");
 

@@ -386,7 +386,7 @@ int main(int argc, char **argv)
 	}
 	else if (pid == 0)
 	{
-		/* child */
+		/* child, receiving stuff */
 		struct sockaddr * resp_addr;
 		
 		#if IPV4
@@ -517,7 +517,7 @@ int main(int argc, char **argv)
 	}
 	else
 	{
-		/* parent */
+		/* parent, sending stuff */
 		size_t msg_len, msg_alloc_len, packet_len;
 		char * msg = NULL;
 		char * packet = NULL;

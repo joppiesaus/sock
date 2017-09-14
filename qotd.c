@@ -57,24 +57,34 @@ char ** parse_quote_list(const char * filename, size_t * len)
 	if (input == NULL)
 		ferr("Couldn't read quote list file");
 	
-	char ** list = malloc(1024 * sizeof(char *));
+	/* initial list length, will double every time there is too little
+	 * space */
+	size_t list_len = 512;
+	char ** list = malloc(list_len * sizeof(char *));
 	
 	char c;
 	size_t i, j;
 	char prevEsc = 0;
 	
-	/* TODO: What if more then 1024 quotes? */
+	/* TODO: create pointer p instead of calling list[i] every time */
 	for (i = 0; ; i++)
 	{
+		if (i >= list_len)
+		{
+			list_len *= 2;
+			list = realloc(list, list_len * sizeof(char *));
+		}
+
 		list[i] = malloc(BUF_SIZE);
 		
-		for (j = 0; j < BUF_SIZE;)
+		/* -1 for terminating null byte */
+		for (j = 0; j < BUF_SIZE - 1;)
 		{
 			c = fgetc(input);
 			
+			/* TODO: is this possible because of cast int to char? */
 			if (c == EOF)
 			{
-				j++;
 				goto endoffile;
 			}
 			if (c == '\\' && !prevEsc)
@@ -82,19 +92,23 @@ char ** parse_quote_list(const char * filename, size_t * len)
 				prevEsc = 1;
 				continue;
 			}
-			
+
 			list[i][j] = c;
+			j++;
 			
 			if (c == '\n' && !prevEsc)
 			{
+				/* if this is hit, high chance msg < BUF_SIZE, so
+				 * resize */
+				list[i] = realloc(list[i], j + 1);
 				break;
 			}
 			
-			j++;
 			prevEsc = 0;
 		}
 		
-		list[i] = realloc(list[i], j);
+		/* Add terminating null byte */
+		list[i][j] = 0x00;
 	}
 
 endoffile:
@@ -103,8 +117,9 @@ endoffile:
 	if (i == 0)
 		ferr("No quotes in list!");
 
-	list[i] = realloc(list[i], j);
-	list = realloc(list, (i + 1) * sizeof(char *));
+	/* if last quote has no \n quote won't be added */
+	free(list[i]);
+	list = realloc(list, i * sizeof(char *));
 	*len = i;
 	
 	return list;
@@ -161,11 +176,12 @@ int main(int argc, char **argv)
 		
 		size_t ran = rand() % n_quotes; /* modulo bias XD */
 		
+		/* TODO: Maybe struct with len built in instead of strlen? */
 		r = sendto(sock, quotes[ran], strlen(quotes[ran]), 0, 
 			(struct sockaddr *)&cli_addr, cli_len);
 			
 		if (r < 0)
-			perror("sendto");
+			perror("Error on sendto");
 	}
 		
 	return 0;

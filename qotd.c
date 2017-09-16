@@ -84,7 +84,6 @@ struct Quote * parse_quote_list(const char * filename, size_t * len)
 		{
 			c = fgetc(input);
 			
-			/* TODO: is this possible because of cast int to char? */
 			if (c == EOF)
 			{
 				goto endoffile;

@@ -19,6 +19,12 @@
 
 #define BUF_SIZE 512
 
+struct Quote
+{
+	char * msg;
+	unsigned short len; /* TODO: type whatever fits BUF_SIZE */
+};
+
 /* Converts a sockaddr to a human readable one */
 char * get_ip_str(const struct sockaddr * sa, char * s, size_t maxlen)
 {
@@ -50,7 +56,7 @@ void ferr(const char * msg)
 	exit(EXIT_FAILURE);
 }
 
-char ** parse_quote_list(const char * filename, size_t * len)
+struct Quote * parse_quote_list(const char * filename, size_t * len)
 {
 	FILE * input = fopen(filename, "r");
 	
@@ -60,9 +66,11 @@ char ** parse_quote_list(const char * filename, size_t * len)
 	/* initial list length, will double every time there is too little
 	 * space */
 	size_t list_len = 512;
-	char ** list = malloc(list_len * sizeof(char *));
+	struct Quote * list = malloc(list_len * sizeof(struct Quote));
 	
-	char * p = NULL; /* current quote */
+	struct Quote q; /* current quote */
+	
+	char * p = NULL; /* current quote message */
 	int c; /* current unsigned char, cast to int for EOF */
 	char prevEsc = 0; /* previous char was escape char */
 	size_t i, j;
@@ -94,23 +102,23 @@ char ** parse_quote_list(const char * filename, size_t * len)
 			{
 				/* if this is hit, high chance msg < BUF_SIZE, so
 				 * resize */
-				p = realloc(p, j + 1);
+				p = realloc(p, j);
 				break;
 			}
 			
 			prevEsc = 0;
 		}
 		
-		/* Add terminating null byte */
-		p[j] = 0x00;
+		q.msg = p;
+		q.len = j;
 		
 		if (i >= list_len)
 		{
 			list_len *= 2;
-			list = realloc(list, list_len * sizeof(char *));
+			list = realloc(list, list_len * sizeof(struct Quote));
 		}
 		
-		list[i] = p;
+		list[i] = q;
 	}
 
 endoffile:
@@ -121,7 +129,7 @@ endoffile:
 
 	/* if last quote has no \n quote won't be added */
 	free(p);
-	list = realloc(list, i * sizeof(char *));
+	list = realloc(list, i * sizeof(struct Quote));
 	*len = i;
 	
 	return list;
@@ -131,7 +139,7 @@ endoffile:
 int main(int argc, char **argv)
 {
 	size_t n_quotes;
-	char ** quotes = parse_quote_list("quotes.txt", &n_quotes);
+	struct Quote * quotes = parse_quote_list("quotes.txt", &n_quotes);
 	
 	srand(time(NULL)); /* seed the RNG with the current time */
 		
@@ -143,6 +151,7 @@ int main(int argc, char **argv)
 	socklen_t cli_len = (socklen_t)sizeof(cli_addr);
 	char buf[BUF_SIZE];
 	char s[INET6_ADDRSTRLEN];
+	size_t ran;
 	
 	
 	sock = socket(AF_INET6,	SOCK_DGRAM, 0); /* IPv6 UDP socket */
@@ -176,10 +185,9 @@ int main(int argc, char **argv)
 		printf("Got message from %s\t%s", get_ip_str(
 			(struct sockaddr *)&cli_addr, s, sizeof(s)), buf);
 		
-		size_t ran = rand() % n_quotes; /* modulo bias XD */
+		ran = rand() % n_quotes; /* modulo bias XD */
 		
-		/* TODO: Maybe struct with len built in instead of strlen? */
-		r = sendto(sock, quotes[ran], strlen(quotes[ran]), 0, 
+		r = sendto(sock, quotes[ran].msg, quotes[ran].len, 0,
 			(struct sockaddr *)&cli_addr, cli_len);
 			
 		if (r < 0)

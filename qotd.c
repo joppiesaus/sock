@@ -62,20 +62,14 @@ char ** parse_quote_list(const char * filename, size_t * len)
 	size_t list_len = 512;
 	char ** list = malloc(list_len * sizeof(char *));
 	
-	char c;
+	char * p = NULL; /* current quote */
+	int c; /* current unsigned char, cast to int for EOF */
+	char prevEsc = 0; /* previous char was escape char */
 	size_t i, j;
-	char prevEsc = 0;
 	
-	/* TODO: create pointer p instead of calling list[i] every time */
 	for (i = 0; ; i++)
 	{
-		if (i >= list_len)
-		{
-			list_len *= 2;
-			list = realloc(list, list_len * sizeof(char *));
-		}
-
-		list[i] = malloc(BUF_SIZE);
+		p = malloc(BUF_SIZE);
 		
 		/* -1 for terminating null byte */
 		for (j = 0; j < BUF_SIZE - 1;)
@@ -93,14 +87,14 @@ char ** parse_quote_list(const char * filename, size_t * len)
 				continue;
 			}
 
-			list[i][j] = c;
+			p[j] = (char)c;
 			j++;
 			
 			if (c == '\n' && !prevEsc)
 			{
 				/* if this is hit, high chance msg < BUF_SIZE, so
 				 * resize */
-				list[i] = realloc(list[i], j + 1);
+				p = realloc(p, j + 1);
 				break;
 			}
 			
@@ -108,7 +102,15 @@ char ** parse_quote_list(const char * filename, size_t * len)
 		}
 		
 		/* Add terminating null byte */
-		list[i][j] = 0x00;
+		p[j] = 0x00;
+		
+		if (i >= list_len)
+		{
+			list_len *= 2;
+			list = realloc(list, list_len * sizeof(char *));
+		}
+		
+		list[i] = p;
 	}
 
 endoffile:
@@ -118,7 +120,7 @@ endoffile:
 		ferr("No quotes in list!");
 
 	/* if last quote has no \n quote won't be added */
-	free(list[i]);
+	free(p);
 	list = realloc(list, i * sizeof(char *));
 	*len = i;
 	
@@ -186,4 +188,3 @@ int main(int argc, char **argv)
 		
 	return 0;
 }
-

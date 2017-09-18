@@ -1,7 +1,10 @@
 /*
  * qotd.c - IPv6 UPD QOTD server conforming to RFC865
  * 
- * Copyright 2016 job <job@function1.nl>
+ * usage: qotd [filename]
+ * if filename is not given, quotes.txt will be tried
+ * 
+ * Copyright 2016-2017 job <job@function1.nl>
  * 
  * This code is released into the P U B L I C  D O M A I N!
  * 
@@ -138,7 +141,10 @@ endoffile:
 int main(int argc, char **argv)
 {
 	size_t n_quotes;
-	struct Quote * quotes = parse_quote_list("quotes.txt", &n_quotes);
+	struct Quote * quotes = parse_quote_list(
+		argc > 1 ? argv[1] : "quotes.txt",
+		&n_quotes
+	);
 	
 	srand(time(NULL)); /* seed the RNG with the current time */
 		

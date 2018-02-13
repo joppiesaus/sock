@@ -2,7 +2,7 @@
  * udpclient.c - socket UDP program thing
  * 
  * 
- * Copyright 2016 job <job@function1.nl>
+ * Copyright 2016,2018 job <job@function1.nl>
  * 
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose is hereby granted.
@@ -18,6 +18,9 @@
  * 
  */
 
+/* for struct addrinfo in netdb.h & getline() in stdio.h */
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,6 +30,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
+
 
 #define BUFLEN 256
 
@@ -49,7 +53,8 @@ void * getinaddr(struct sockaddr *sa)
 int main(int argc, char *argv[])
 {
 	int sock, rv;
-	size_t msglen, n;
+	size_t msglen;
+	ssize_t n;
 	struct addrinfo hints, *servinfo, *p;
 	char buffer[BUFLEN];
 	char ipbuffer[INET6_ADDRSTRLEN];
@@ -65,6 +70,37 @@ int main(int argc, char *argv[])
 	hints.ai_family = AF_UNSPEC; /*Unspecified(IPv4, IPv6, don't care)*/
 	hints.ai_socktype = SOCK_DGRAM; /* UDP */
 	
+	/* force IPv4 / IPv6 based on program arguments */
+	for (n = 3; n < argc; n++)
+	{
+		if (argv[n][0] == '-')
+		{
+			if (argv[n][1] == '6') /* -6 */
+			{
+				hints.ai_family = AF_INET6;
+			}
+			else if (argv[n][1] == '4') /* -4 */
+			{
+				hints.ai_family = AF_INET;
+			}
+			else if (
+				argv[n][1] == '-' &&
+				argv[n][2] == 'i' &&
+				argv[n][3] == 'p' &&
+				argv[n][4] == 'v')
+			{
+				if (argv[n][5] == '6') /* --ipv6 */
+				{
+					hints.ai_family = AF_INET6;
+				}
+				else if (argv[n][5] == '4') /* --ipv4 */
+				{
+					hints.ai_family = AF_INET;
+				}
+			}
+		}
+	}
+
 	/* get server info */
 	if ((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0)
 	{
@@ -104,8 +140,6 @@ int main(int argc, char *argv[])
 	}
 	
 	printf("Found %s! Say something!\n", ipbuffer);
-	
-	/*freeaddrinfo(servinfo);*/
 	
 	
 	/* TODO: poll()? */

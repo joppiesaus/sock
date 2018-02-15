@@ -18,6 +18,9 @@
  * 
  */
 
+/* set to 1 to compile additional options (--ipv4, --ipv6...) */
+#define COMPILE_ADDITIONAL_OPTS 1
+
 /* for struct addrinfo in netdb.h & getline() in stdio.h */
 #define _POSIX_C_SOURCE 200809L
 
@@ -70,6 +73,7 @@ int main(int argc, char *argv[])
 	hints.ai_family = AF_UNSPEC; /*Unspecified(IPv4, IPv6, don't care)*/
 	hints.ai_socktype = SOCK_DGRAM; /* UDP */
 	
+	#if COMPILE_ADDITIONAL_OPTS
 	/* force IPv4 / IPv6 based on program arguments */
 	for (n = 3; n < argc; n++)
 	{
@@ -100,6 +104,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+	#endif
 
 	/* get server info */
 	if ((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0)

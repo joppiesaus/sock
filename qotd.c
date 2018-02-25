@@ -19,8 +19,12 @@
 /* Set to 1 if you want to watch the quote file for changes, so
  * that when it changes the quote list is automatically updated.
  * This uses linux's inotify API, so it may not work in some
- * environments. */
+ * environments.
+ * adding -D COMPILE_AUTOUPDATE to your compiler flags will typically
+ * work as well */
+#ifndef COMPILE_AUTOUPDATE
 #define COMPILE_AUTOUPDATE 0
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>

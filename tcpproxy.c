@@ -191,7 +191,7 @@ int main(int argc, char **argv)
 	/* took me a longer time I would like to admit to resolve a segfault,
 	 * turns out you have to initialize n_addr during accept yourself... */
 	if (inet_ntop(domain, getinaddr(n_addr), ntop_buf_a, ntop_buf_len) == NULL ||
-		inet_ntop(domain, p->ai_addr, ntop_buf_b, ntop_buf_len) == NULL) {
+		inet_ntop(domain, getinaddr(p->ai_addr), ntop_buf_b, ntop_buf_len) == NULL) {
 		perror("inet_ntop");
 	} else {
 		printf("%s <-> %s\n", ntop_buf_a, ntop_buf_b);

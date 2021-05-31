@@ -233,6 +233,7 @@ int main(int argc, char **argv)
 		
 		for (int i = 0; i < 2; i++) {
 			
+			/* no data? skip */
 			if (!(fds[i].revents & POLLIN)) continue;
 			
 			memset(&buf, 0, BUF_LEN);
@@ -250,12 +251,13 @@ int main(int argc, char **argv)
 				goto quit; /* hah i am using goto anyways */
 			}
 			
+			/* TODO: specify IP address */
 			printf("message from %d: length %d\n", i, b);
 			
 			puts((const char*)buf);
 			
 			
-			
+			/* send the data to the next socket */
 			b = send(fds[(i + 1) % 2].fd, &buf, b, 0);
 			
 			if (b < 0) {

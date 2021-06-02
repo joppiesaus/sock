@@ -1,13 +1,14 @@
 /*
- * server.c - Creates a listening socket that echo's messages to all
+ * server.c - Creates a listening TCP socket that echo's messages to all
  *            its peers
  * 
- * Copyright 2016 job <job@function1.nl>
+ * Copyright 2016,2021 job <job@function1.nl>
  * 
  * CC0/Public Domain
  * 
  * IDEAS:
- * 		IPv6 support
+ *		Allow server to transmit messages as well
+ * 		Make program handle endless amount of clients
  * 
  */
 
@@ -24,14 +25,14 @@
 #define MAX_CONN 100
 #define BACKLOG 5 /* listen() backlog */
 #define BUFLEN 256 /* size of recv buffer */
-#define TIMEOUT 30 * 1000 /* 30 seconds poll() timeout */
+#define TIMEOUT -1 /* indefinite poll timeout */
 
 /* converts sockaddr* to string and puts into ipbuffer */
 #define GETINET(s) inet_ntop(s->sa_family, getinaddr(s), ipbuffer, \
 	sizeof(ipbuffer))
 
 const char * RETURN_MESSAGE = "✓✓ seen\n";
-const char * FULL_MESSAGE = "😩 I am sorry but the server is full";
+const char * FULL_MESSAGE = "😩 I am sorry but the server is full\n";
 
 /* prints msg, with error details, and exits */
 void ferr(const char * msg)
@@ -52,20 +53,40 @@ void * getinaddr(struct sockaddr *sa)
 int main(int argc, char **argv)
 {
 	int sock, portno, rv, i, j, n;
-	struct sockaddr_in serv_addr;
+	struct sockaddr * serv_addr = NULL;
 	struct sockaddr * cli_addr = NULL;
+	socklen_t serv_addrlen = sizeof(struct sockaddr_in6);
 	
 	char buffer[BUFLEN];
 	char ipbuffer[INET6_ADDRSTRLEN];
 	
+	int domain = AF_INET6;
+	
 	if (argc < 2)
 	{
-		fprintf(stderr, "Usage: %s <port>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <port> [ipv4 or ipv6]\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 	
-	/* TODO: IPv6 */
-	sock = socket(AF_INET, SOCK_STREAM, 0); /* init TCP socket */
+	if (argc > 2) {
+		
+		if ((argv[2][0] == '4' && argv[2][1] == 0x00) ||
+			strncmp(argv[2], "ipv4", 4) == 0) {
+			
+			domain = AF_INET; /* IPv4 */
+			serv_addrlen = sizeof(struct sockaddr_in);
+			
+			puts("Listening with IPv4");
+			
+		} else if (!(argv[2][0] == '6' && argv[2][1] == 0x00) &&
+				strncmp(argv[2], "ipv6", 4) != 0){
+			
+			fprintf(stderr, "I have no idea what %s is, defaulting to IPv6\n", argv[2]);
+		}
+		
+	}
+	
+	sock = socket(domain, SOCK_STREAM, 0); /* init TCP socket */
 	
 	if (sock < 0)
 		ferr("Error opening socket");
@@ -77,23 +98,45 @@ int main(int argc, char **argv)
 		(void*)&yes, sizeof(yes)) < 0)
 		perror("Error on setsockopt");
 	
+	/* TODO: Error handling */
 	portno = atoi(argv[1]);
 	
-	memset(&serv_addr, 0, sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(portno);
-	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr = malloc(serv_addrlen);
+	memset(serv_addr, 0, serv_addrlen);
+	serv_addr->sa_family = domain;
 	
-	if (bind(sock, (struct sockaddr *)&serv_addr,
-		sizeof(serv_addr)) < 0)
+	if (domain == AF_INET6)
+	{
+		struct sockaddr_in6 * a = (struct sockaddr_in6 *)serv_addr;
+		
+		a->sin6_port = htons(portno);
+		/* idk how C works exactly. Can't just assign it, because it's
+		 * an array. In theory and practice this doesn't have to happen
+		 * at all because it's just 128 0's, but I do this anyways
+		 * might it be different one day. */
+		memcpy(&a->sin6_addr.s6_addr, &in6addr_any, sizeof(in6addr_any));
+	}
+	else /* ipv4 */
+	{
+		struct sockaddr_in * a = (struct sockaddr_in *)serv_addr;
+		
+		a->sin_port = htons(portno);
+		a->sin_addr.s_addr = INADDR_ANY;
+	}
+	
+	
+	
+	if (bind(sock, (struct sockaddr *)serv_addr, serv_addrlen) < 0)
 		ferr("Error on binding socket");
 	
 	if (listen(sock, BACKLOG) == -1)
 		ferr("Error on listen");
-		
-	size_t cli_size = sizeof(serv_addr.sin_addr);
-	socklen_t clilen = (socklen_t)cli_size;
-	cli_addr = malloc(cli_size);
+	
+	GETINET(serv_addr);
+	printf("Success! Now listening on %s:%d...\n", ipbuffer, portno);
+	
+	socklen_t clilen = (socklen_t)serv_addrlen;
+	cli_addr = malloc(clilen);
 	
 	/* TODO: make "infinite"? */
 	struct pollfd fdlist[MAX_CONN + 1];
@@ -118,7 +161,7 @@ int main(int argc, char **argv)
 		if (fdlist[0].revents & POLLIN)
 		{
 			/* new connection inbound */
-			memset(cli_addr, 0, cli_size);
+			memset(cli_addr, 0, clilen);
 			int cfd = accept(sock, cli_addr, &clilen);
 			
 			if (cfd < 0)
@@ -197,7 +240,7 @@ int main(int argc, char **argv)
 				/* send the message to the rest of the peers */
 				for (j = 1; j < sockcount; j++)
 				{
-					/* do not resend to sender */
+					/* do not resend to sender. Could be optimized */
 					if (i == j) continue;
 					
 					n = send(fdlist[j].fd, buffer, strlen(buffer), 0);
@@ -212,6 +255,7 @@ int main(int argc, char **argv)
 		}
 		
 	}
+	free(serv_addr);
 	
 	return 0;
 }

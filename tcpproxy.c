@@ -185,20 +185,20 @@ int main(int argc, char **argv)
 	/* pretty print the addresses */
 	int ntop_buf_len = IS_IPV6 ? INET6_ADDRSTRLEN : INET_ADDRSTRLEN;
 	
-	char * ntop_buf_a = malloc(ntop_buf_len);
-	char * ntop_buf_b = malloc(ntop_buf_len);
+	/* instead of creating two strings, create one and put both in there */
+	char * ntop_buf = malloc(ntop_buf_len * 2);
 	
 	/* took me a longer time I would like to admit to resolve a segfault,
 	 * turns out you have to initialize n_addr during accept yourself... */
-	if (inet_ntop(domain, getinaddr(n_addr), ntop_buf_a, ntop_buf_len) == NULL ||
-		inet_ntop(domain, getinaddr(p->ai_addr), ntop_buf_b, ntop_buf_len) == NULL) {
+	if (inet_ntop(domain, getinaddr(n_addr), ntop_buf, ntop_buf_len) == NULL ||
+			inet_ntop(domain, getinaddr(p->ai_addr),
+			(ntop_buf + ntop_buf_len), ntop_buf_len) == NULL) {
 		perror("inet_ntop");
 	} else {
-		printf("%s <-> %s\n", ntop_buf_a, ntop_buf_b);
+		printf("%s <-> %s\n", ntop_buf, (ntop_buf + ntop_buf_len));
 	}
 	
-	free(ntop_buf_a);
-	free(ntop_buf_b);
+	free(ntop_buf);
 	
 	
 	

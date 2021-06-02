@@ -62,6 +62,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	
+	/* TODO: Error handling */
 	listen_port = atoi(argv[1]);
 	
 	if (argc >= 5) {
@@ -71,7 +72,10 @@ int main(int argc, char **argv)
 			domain = AF_INET; /* IPv4 */
 			listen_addrlen = sizeof(struct sockaddr_in);
 			puts("Connecting via IPv4");
-		} else {
+			
+		} else if (!(argv[2][0] == '6' && argv[2][1] == 0x00) &&
+				strncmp(argv[2], "ipv6", 4) != 0) {
+			
 			fprintf(stderr, "I have no idea what %s is, defaulting to IPv6\n", argv[4]);
 		}
 	}
@@ -101,25 +105,25 @@ int main(int argc, char **argv)
 	
 	listen_addr = malloc(listen_addrlen);
 	memset(listen_addr, 0, listen_addrlen);
+	listen_addr->sa_family = domain;
 	
 	if (domain == AF_INET6)
 	{
 		struct sockaddr_in6 * a = (struct sockaddr_in6 *)listen_addr;
 		
-		a->sin6_family = AF_INET6; /* IPv6 */
 		a->sin6_port = htons(listen_port);
-		/* No need to set this, as we've set the entire struct to 0,
-		 * and as IN6ADDR_ANY_INIT is a bunch of zeroes, this is
-		 * uneccesarry. */
-		/*a->sin6_addr = any; */  /* local address */
+		/* idk how C works exactly. Can't just assign it, because it's
+		 * an array. In theory and practice this doesn't have to happen
+		 * at all because it's just 128 0's, but I do this anyways
+		 * might it be different one day. */
+		memcpy(&a->sin6_addr.s6_addr, &in6addr_any, sizeof(in6addr_any));
 	}
 	else
 	{
 		struct sockaddr_in * a = (struct sockaddr_in *)listen_addr;
 		
-		a->sin_family = AF_INET;
 		a->sin_port = htons(listen_port);
-		/*a->sin_addr = any;*/
+		a->sin_addr.s_addr = INADDR_ANY;
 	}
 	
 	if (bind(lsock, listen_addr, listen_addrlen) < 0) {
@@ -238,7 +242,8 @@ int main(int argc, char **argv)
 			
 			memset(&buf, 0, BUF_LEN);
 			
-			b = recv(fds[i].fd, (void *)&buf, BUF_LEN, 0);
+			/* -1 because of terminating 0 byte */
+			b = recv(fds[i].fd, (void *)&buf, BUF_LEN - 1, 0);
 			
 			if (b < 0) {
 				perror("recv");

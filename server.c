@@ -8,7 +8,8 @@
  * 
  * IDEAS:
  *		Allow server to transmit messages as well
- * 		Make program handle endless amount of clients
+ * 		inform clients about changes
+ * 		custom run-time max connection
  * 
  */
 
@@ -22,7 +23,7 @@
 #include <string.h>
 #include <poll.h>
 
-#define MAX_CONN 100
+#define INITIAL_CONN 40
 #define BACKLOG 5 /* listen() backlog */
 #define BUFLEN 256 /* size of recv buffer */
 #define TIMEOUT -1 /* indefinite poll timeout */
@@ -138,12 +139,14 @@ int main(int argc, char **argv)
 	socklen_t clilen = (socklen_t)serv_addrlen;
 	cli_addr = malloc(clilen);
 	
-	/* TODO: make "infinite"? */
-	struct pollfd fdlist[MAX_CONN + 1];
+	
+	int fdlen = INITIAL_CONN + 1;
+	int sockcount = 1;
+	
+	struct pollfd * fdlist = malloc(fdlen * sizeof(struct pollfd));
 	fdlist[0].fd = sock;
 	fdlist[0].events = POLLIN;
 	
-	int sockcount = 1;
 	
 	while (1)
 	{
@@ -171,22 +174,19 @@ int main(int argc, char **argv)
 			}
 			
 			GETINET(cli_addr);
-			printf("Incoming connection from %s...\n", ipbuffer);
+			printf("Incoming connection from %s... ", ipbuffer);
+			fflush(stdout);
 			
-			if (sockcount > MAX_CONN)
+			if (sockcount >= fdlen)
 			{
-				/* server is full, reject */
-				printf("Client rejected(server full)\n");
-				
-				/* send a kind message */
-				n = send(cfd, FULL_MESSAGE, strlen(FULL_MESSAGE), 0);
-				
-				if (n < 0)
-					perror("Failed to write server is full response");
-					
-				close(cfd);
-				
-				continue;
+				/* resize array to fit the new connection */
+				fdlen *= 2;
+				/* people say: realloc can fail, so you must first
+				 * create a new pointer and an old pointer and check for
+				 * errors. Well, I reckon that if realloc fails, all
+				 * hope is lost anyways. For important stuff, sure, but
+				 * this program is not important stuff. */
+				fdlist = realloc(fdlist, fdlen * sizeof(struct pollfd));
 			}
 			
 			/* add it to the list of sockets */
@@ -196,7 +196,7 @@ int main(int argc, char **argv)
 			
 			fdlist[sockcount++] = client;
 			
-			printf("Accepted new client\n");
+			printf("Accepted\n");
 		}
 		
 		for (i = 1/*skip listening socket*/; i < sockcount; i++)
@@ -222,6 +222,15 @@ int main(int argc, char **argv)
 					fdlist[i--] = fdlist[--sockcount];
 					
 					printf("Client left\n");
+					
+					/* resize of necessary */
+					if (fdlen >= INITIAL_CONN * 2 &&
+						sockcount <	fdlen / 2 - fdlen / 8)
+					{
+						fdlen /= 2;
+						fdlist = realloc(fdlist, fdlen *
+							sizeof(struct pollfd));
+					}
 					
 					continue;
 				}
@@ -255,6 +264,7 @@ int main(int argc, char **argv)
 		}
 		
 	}
+	free(fdlist);
 	free(serv_addr);
 	
 	return 0;

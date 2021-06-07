@@ -24,6 +24,7 @@
 #include <poll.h>
 
 #define INITIAL_CONN 40
+#define MAX_CONN_ALLOC (8192 / sizeof(struct pollfd)) /* 8 KB max block size */
 #define BACKLOG 5 /* listen() backlog */
 #define BUFLEN 256 /* size of recv buffer */
 #define TIMEOUT -1 /* indefinite poll timeout */
@@ -180,7 +181,12 @@ int main(int argc, char **argv)
 			if (sockcount >= fdlen)
 			{
 				/* resize array to fit the new connection */
-				fdlen *= 2;
+				if (fdlen >= MAX_CONN_ALLOC) {
+					fdlen += MAX_CONN_ALLOC;
+				} else {
+					fdlen *= 2;
+				}
+				
 				/* people say: realloc can fail, so you must first
 				 * create a new pointer and an old pointer and check for
 				 * errors. Well, I reckon that if realloc fails, all

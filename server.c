@@ -23,11 +23,22 @@
 #include <string.h>
 #include <poll.h>
 
-#define INITIAL_CONN 40
+#define INITIAL_CONN 24
 #define MAX_CONN_ALLOC (8192 / sizeof(struct pollfd)) /* 8 KB max block size */
 #define BACKLOG 5 /* listen() backlog */
 #define BUFLEN 256 /* size of recv buffer */
 #define TIMEOUT -1 /* indefinite poll timeout */
+
+/* makes a for loop that skips INCR_VAR == SKIP_VAR efficiently */
+#define FOR_LOOP_SKIP_N( INCR_VAR, INIT_VAL, SKIP_VAR, END_VAR, CODE_BLOCK ) \
+	for ( (INCR_VAR) = (INIT_VAL); (INCR_VAR) < (SKIP_VAR); (INCR_VAR)++ ) {\
+		CODE_BLOCK \
+	}\
+	(INCR_VAR)++; \
+	for (; (INCR_VAR) < (END_VAR); (INCR_VAR)++ ) {\
+		CODE_BLOCK \
+	}
+
 
 /* converts sockaddr* to string and puts into ipbuffer */
 #define GETINET(s) inet_ntop(s->sa_family, getinaddr(s), ipbuffer, \
@@ -35,6 +46,7 @@
 
 const char * RETURN_MESSAGE = "✓✓ seen\n";
 const char * FULL_MESSAGE = "😩 I am sorry but the server is full\n";
+	
 
 /* prints msg, with error details, and exits */
 void ferr(const char * msg)
@@ -230,12 +242,23 @@ int main(int argc, char **argv)
 					printf("Client left\n");
 					
 					/* resize of necessary */
-					if (fdlen >= INITIAL_CONN * 2 &&
-						sockcount <	fdlen / 2 - fdlen / 8)
+					if (fdlen >= INITIAL_CONN * 2)
 					{
-						fdlen /= 2;
-						fdlist = realloc(fdlist, fdlen *
-							sizeof(struct pollfd));
+						if (fdlen > MAX_CONN_ALLOC * 2 
+								  + MAX_CONN_ALLOC / 2 &&
+								fdlen - sockcount > MAX_CONN_ALLOC +
+									MAX_CONN_ALLOC / 2)
+						{
+							fdlen -= MAX_CONN_ALLOC;
+							fdlist = realloc(fdlist, fdlen *
+								sizeof(struct pollfd));
+						}
+						else if (sockcount < fdlen / 2 - fdlen / 8)
+						{
+							fdlen /= 2;
+							fdlist = realloc(fdlist, fdlen *
+								sizeof(struct pollfd));
+						}
 					}
 					
 					continue;
@@ -252,11 +275,9 @@ int main(int argc, char **argv)
 					perror("Error writing socket");
 				
 				
-				/* send the message to the rest of the peers */
-				for (j = 1; j < sockcount; j++)
-				{
-					/* do not resend to sender. Could be optimized */
-					if (i == j) continue;
+				/* send the message to the rest of the peers,
+				 * and skip origin socket */
+				FOR_LOOP_SKIP_N( j, 1, i, sockcount, {
 					
 					n = send(fdlist[j].fd, buffer, strlen(buffer), 0);
 					
@@ -265,7 +286,7 @@ int main(int argc, char **argv)
 						perror("Error writing socket");
 						continue;
 					}
-				}
+				})
 			}
 		}
 		

@@ -66,7 +66,7 @@ void * getinaddr(struct sockaddr *sa)
 
 int main(int argc, char **argv)
 {
-	int sock, portno, rv, i, j, n;
+	int sock, portno, rv, i, j, n, rn;
 	struct sockaddr * serv_addr = NULL;
 	struct sockaddr * cli_addr = NULL;
 	socklen_t serv_addrlen = sizeof(struct sockaddr_in6);
@@ -224,14 +224,14 @@ int main(int argc, char **argv)
 				/* incoming message! */
 				memset(buffer, 0, BUFLEN);
 				
-				n = recv(fdlist[i].fd, buffer, BUFLEN - 1, 0);
+				rn = recv(fdlist[i].fd, buffer, BUFLEN - 1, 0);
 				
-				if (n < 0)
+				if (rn < 0)
 				{
 					perror("Error reading socket");
 					continue;
 				}
-				else if (n == 0)
+				else if (rn == 0)
 				{
 					/* EOF detected, remove the socket */
 					close(fdlist[i].fd);
@@ -279,7 +279,7 @@ int main(int argc, char **argv)
 				 * and skip origin socket */
 				FOR_LOOP_SKIP_N( j, 1, i, sockcount, {
 					
-					n = send(fdlist[j].fd, buffer, strlen(buffer), 0);
+					n = send(fdlist[j].fd, buffer, rn, 0);
 					
 					if (n < 0)
 					{
